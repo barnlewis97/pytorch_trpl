@@ -8,6 +8,7 @@ torch.set_default_dtype(torch.float64)
 
 import numpy as np
 import matplotlib.pyplot as plt
+import arviz as az
 import pyro
 import pyro.distributions as dist
 from pyro.infer import MCMC, NUTS
@@ -92,16 +93,27 @@ if __name__ == "__main__":
         "sigma": torch.tensor(0.0005, dtype=torch.float64),
     }
 
-    nuts_kernel = NUTS(model, init_strategy=init_to_value(values=init_vals))
+    nuts_kernel = NUTS(
+        model,
+        init_strategy=init_to_value(values=init_vals),
+        full_mass=False,          # dense mass matrix - see notes below
+        target_accept_prob=0.9,  # a bit more conservative than the 0.8 default
+        max_tree_depth=6,       # default; raise only if diagnostics say to
+    )
 
     mcmc = MCMC(
         nuts_kernel,
-        num_samples=400,
-        warmup_steps=100,
-        num_chains=6,
+        num_samples=50,
+        warmup_steps=50,        # more warmup so the dense mass matrix can be estimated well
+        num_chains=3,
         mp_context="spawn",
     )
 
+    # Run sampling
+    mcmc.run(t_eval, n0s_eval, observed_data)
+
+    print("\nSampling Complete. Summary:")
+    mcmc.summary()
     # Run sampling
     mcmc.run(t_eval, n0s_eval, observed_data)
     
